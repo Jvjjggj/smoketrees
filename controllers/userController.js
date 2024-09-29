@@ -4,21 +4,37 @@ const bcrypt = require("bcryptjs");
 
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, password, address } = req.body;
-    
+    const { username, email, password, address } = req.body;
+
+    // Check if user already exists
+    const oldUser = await User.findOne({ email });
+    if (oldUser) {
+        return res.status(400).send({ status: "User already exists" });
+    }
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
-    const newUser = new User({ name, email, password: hashedPassword });
-    const savedUser = await newUser.save();
+    // Create the user
+    const newUser = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+    });
 
-    // Create new address and link to the saved user
-    const newAddress = new Address({ userId: savedUser._id, address });
-    await newAddress.save();
+    // Create the address
+    const newAddress = await Address.create({
+        userId: newUser._id, // Use the newly created user ID
+        address,
+    });
 
-    res.send({ status: "User and Address Registered Successfully", user: savedUser, address: newAddress });
-  } catch (error) {
-    res.status(500).send({ error: "Error Registering User or Address" });
-  }
+    res.status(201).send({
+        status: "User and Address Registered Successfully",
+        user: newUser,
+        address: newAddress,
+    });
+} catch (error) {
+    console.error(error);
+    res.status(500).send({ status: "Error occurred during registration" });
+}
 };
